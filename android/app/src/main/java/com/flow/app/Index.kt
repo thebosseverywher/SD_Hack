@@ -80,10 +80,10 @@ class InMemoryIndex : Index {
         return item.id
     }
 
-    override fun searchText(vec: FloatArray, k: Int, filters: Filters?): List<Hit> =
+    override fun searchText(vec: FloatArray, k: Int, filters: Index.Filters?): List<Hit> =
         knn(vec, k, filters) { it.textVec }
 
-    override fun searchImage(vec: FloatArray, k: Int, filters: Filters?): List<Hit> =
+    override fun searchImage(vec: FloatArray, k: Int, filters: Index.Filters?): List<Hit> =
         knn(vec, k, filters) { it.imageVec }
 
     override fun get(itemId: String): Item? = store[itemId]?.item
@@ -93,7 +93,7 @@ class InMemoryIndex : Index {
     private inline fun knn(
         query: FloatArray,
         k: Int,
-        filters: Filters?,
+        filters: Index.Filters?,
         crossinline pick: (Entry) -> FloatArray?
     ): List<Hit> {
         val qn = l2norm(query)
@@ -110,12 +110,12 @@ class InMemoryIndex : Index {
             .toList()
     }
 
-    private fun matches(item: Item, f: Filters?): Boolean {
+    private fun matches(item: Item, f: Index.Filters?): Boolean {
         if (f == null) return true
-        f.sources?.let { if (item.source !in it) return false }
-        f.types?.let { if (item.type !in it) return false }
-        f.sinceTs?.let { if (item.ts < it) return false }
-        f.untilTs?.let { if (item.ts > it) return false }
+        if (f.sources != null && item.source !in f.sources) return false
+        if (f.types != null && item.type !in f.types) return false
+        if (f.sinceTs != null && item.ts < f.sinceTs) return false
+        if (f.untilTs != null && item.ts > f.untilTs) return false
         return true
     }
 

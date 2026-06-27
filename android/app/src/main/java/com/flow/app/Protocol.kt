@@ -95,7 +95,9 @@ data class Hit(
 data class Caps(
     val tops: Double = 0.0,
     val has_llm: Boolean = false,
-    val battery: Int = -1
+    // Nullable: the desktop emits `"battery": null` when plugged/unknown, which would
+    // otherwise fail to decode into a non-nullable Int and tear down the federation link.
+    val battery: Int? = null
 )
 
 // ---------------------------------------------------------------------------
@@ -187,8 +189,8 @@ data class PairingInfo(
  */
 object Wire {
     fun peekType(jsonText: String): String? = try {
-        val obj = FlowJson.parseToJsonElement(jsonText) as? JsonObject ?: return null
-        (obj["type"] as? kotlinx.serialization.json.JsonPrimitive)?.content
+        val obj = FlowJson.parseToJsonElement(jsonText) as? JsonObject
+        (obj?.get("type") as? kotlinx.serialization.json.JsonPrimitive)?.content
     } catch (_: Throwable) {
         null
     }

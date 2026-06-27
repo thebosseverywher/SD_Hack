@@ -1,4 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ic_launcher_background">#0E7C7B</color>
+    <!-- Neo-brutalism palette (single source of truth mirrored in NeoBrutalism.kt / NeoTheme). -->
+    <color name="bg_cream">#F3E9CE</color>
+    <color name="surface_white">#FFFFFF</color>
+    <color name="surface_mint">#BFF2D4</color>
+    <color name="primary_green">#2FCB6E</color>
+    <color name="accent_green_deep">#0B7A3B</color>
+    <color name="ink">#141414</color>
+    <color name="ink_muted">#4A4A4A</color>
+    <color name="danger_red">#E5484D</color>
+
+    <!-- Launcher background kept as a brand green. -->
+    <color name="ic_launcher_background">#2FCB6E</color>
 </resources>

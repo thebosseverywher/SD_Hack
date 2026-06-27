@@ -50,14 +50,55 @@ data class TypeGuess(val type: String, val score: Float)
  * real implementations should warm up sessions in [warmUp].
  */
 class Inference(
-    @Suppress("unused") private val context: Context,
+    private val context: Context,
     var preferredEp: ExecutionProvider = ExecutionProvider.QNN_NPU
 ) {
     /** Last timing per stage, for the telemetry panel. Thread-safe enough for a demo. */
     val lastTimings = mutableMapOf<String, InferenceTiming>()
 
-    /** TODO: build & warm ORT sessions here. No-op in the stub. */
-    fun warmUp() { /* load sessions, run a dummy inference to JIT/compile QNN graph */ }
+    // ----------------------------------------------------------------------
+    // On-device LLM (MediaPipe Tasks-GenAI). Lazily built at most once. null =>
+    // unavailable (no model file / init failed) -> generate() uses the stub.
+    // ----------------------------------------------------------------------
+    private val llmLock = Any()
+    @Volatile private var llmTried = false
+    @Volatile private var llm: LlmEngine? = null
+    /** Serializes generate(): an LlmInference instance allows only one generation at a time. */
+    private val genLock = Any()
+
+    /** True once the one-time LLM init attempt has finished (loaded a model OR fell back to stub). */
+    @Volatile var llmReady: Boolean = false
+        private set
+    /** True when a REAL on-device model is loaded (vs. the deterministic stub fallback). */
+    val llmModelLoaded: Boolean get() = llmTried && llm != null
+    @Volatile private var warmStarted = false
+
+    /** Build the LLM engine once; returns null (and stays null) if model missing / init fails. */
+    private fun llmOrNull(): LlmEngine? {
+        if (llmTried) return llm
+        synchronized(llmLock) {
+            if (llmTried) return llm
+            llm = LlmEngine.createOrNull(context)
+            llmTried = true
+            return llm
+        }
+    }
+
+    /**
+     * Warm up the LLM OFF the main thread — loading the .task model is heavy (hundreds of MB).
+     * [llmReady] flips true once the attempt completes; the UI gates the Ask screen on it so
+     * a query is only allowed after the model has finished loading. Idempotent.
+     */
+    fun warmUp() {
+        synchronized(llmLock) {
+            if (warmStarted) return
+            warmStarted = true
+        }
+        Thread({
+            try { llmOrNull() } catch (_: Throwable) { /* createOrNull already guards */ }
+            finally { llmReady = true }
+        }, "flow-llm-warmup").start()
+    }
 
     // ----------------------------------------------------------------------
     // 1.1 Text embedding service -> 384-d, L2-normalized.
@@ -125,17 +166,54 @@ class Inference(
         stop: List<String> = emptyList(),
         onToken: (String) -> Unit
     ) {
-        val ns = measureNanoTime {
-            val placeholder =
-                "[stub LLM] On-device answer would be generated here, grounded in the cited items."
-            for (tok in placeholder.split(" ")) {
-                if (stop.any { tok.contains(it) }) break
-                onToken("$tok ")
+        val engine = llmOrNull()
+        if (engine == null) {
+            // No model / init failed -> deterministic stub (with its own timing).
+            val ns = measureNanoTime { generateStub(prompt, maxTokens, stop, onToken) }
+            val secs = ns / 1_000_000_000.0
+            record("generate", ns, tokensPerSec = if (secs > 0) 8.0 / secs else null)
+            return
+        }
+
+        var emitted = 0
+        var fellBackToStub = false
+        // Only one generation at a time per LlmInference instance.
+        val ns = synchronized(genLock) {
+            measureNanoTime {
+                try {
+                    emitted = engine.generate(prompt, maxTokens, stop, onToken)
+                } catch (t: Throwable) {
+                    android.util.Log.w("Inference", "LLM generate failed, stub fallback", t)
+                    // Only fall back if nothing was streamed; otherwise stop cleanly.
+                    if (emitted == 0) {
+                        generateStub(prompt, maxTokens, stop, onToken)
+                        fellBackToStub = true
+                    }
+                }
             }
         }
-        // ~ pretend 8 tokens emitted for a tokens/sec readout.
         val secs = ns / 1_000_000_000.0
-        record("generate", ns, tokensPerSec = if (secs > 0) 8.0 / secs else null)
+        val tps = when {
+            fellBackToStub && secs > 0 -> 8.0 / secs
+            secs > 0 && emitted > 0 -> emitted / secs
+            else -> null
+        }
+        record("generate", ns, tokensPerSec = tps)
+    }
+
+    /** Deterministic offline fallback: streams a single sentence word-by-word into [onToken]. */
+    private fun generateStub(
+        @Suppress("unused") prompt: String,
+        @Suppress("unused") maxTokens: Int,
+        stop: List<String>,
+        onToken: (String) -> Unit
+    ) {
+        val placeholder =
+            "[stub LLM] On-device answer would be generated here, grounded in the cited items."
+        for (tok in placeholder.split(" ")) {
+            if (stop.any { it.isNotEmpty() && tok.contains(it) }) break
+            onToken("$tok ")
+        }
     }
 
     // ----------------------------------------------------------------------

@@ -1,0 +1,8 @@
+Home network details.
+
+WiFi network name (SSID): FlowHouse_5G
+WiFi password: maple-otter-49
+Router admin page: http://192.168.0.1 (admin / changeme)
+
+Guest WiFi SSID: FlowHouse_Guest
+Guest WiFi password: welcome-guest-22

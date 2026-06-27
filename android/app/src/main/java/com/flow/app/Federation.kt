@@ -2,6 +2,8 @@ package com.flow.app
 
 import android.util.Base64
 import android.util.Log
+import com.google.crypto.tink.Aead
+import com.google.crypto.tink.subtle.XChaCha20Poly1305
 import kotlinx.serialization.json.JsonObject
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -61,68 +63,36 @@ interface PeerLink {
  * replay window rejects out-of-order/duplicate counters (spec §0.5).
  */
 class AeadChannel(psk: ByteArray) {
-    private val key: ByteArray = hkdfSha256(psk, "flow-fed-v1".toByteArray(), "aead-key".toByteArray(), 32)
-    private val keySpec = SecretKeySpec(key, "AES")
-
-    @Volatile private var sendCounter: Long = 0
-    private val randPrefix = ByteArray(4).also { java.security.SecureRandom().nextBytes(it) }
-
-    // Replay protection: highest counter seen + a small sliding window.
-    @Volatile private var highestSeen: Long = -1
-    private val window = sortedSetOf<Long>()
+    // Session key + cipher chosen to interoperate byte-for-byte with the desktop
+    // engine's flow/crypto.py SecureChannel:
+    //   key    = HKDF-SHA256(ikm=psk, salt=32 zero bytes, info="flow/session/v1") -> 32B
+    //   cipher = XChaCha20-Poly1305 (IETF, 24-byte random nonce) via Tink
+    //   frame  = base64( nonce(24) || ciphertext||tag )
+    // (Previously an AES-256-GCM stub with a 12-byte counter nonce — incompatible
+    //  with the desktop, so cross-device frames never decrypted.)
+    private val aead: Aead = XChaCha20Poly1305(
+        hkdfSha256(psk, ByteArray(32), "flow/session/v1".toByteArray(Charsets.UTF_8), 32)
+    )
 
     fun seal(plaintext: String): String {
-        val nonce = ByteArray(12)
-        System.arraycopy(randPrefix, 0, nonce, 0, 4)
-        val ctr = synchronized(this) { ++sendCounter }
-        for (i in 0 until 8) nonce[4 + i] = (ctr ushr (8 * (7 - i))).toByte()
-
-        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(Cipher.ENCRYPT_MODE, keySpec, GCMParameterSpec(128, nonce))
-        val ct = cipher.doFinal(plaintext.toByteArray(Charsets.UTF_8))
-        val frame = nonce + ct
+        val frame = aead.encrypt(plaintext.toByteArray(Charsets.UTF_8), EMPTY_AAD)
         return Base64.encodeToString(frame, Base64.NO_WRAP)
     }
 
-    /** @return plaintext JSON, or null if the frame is malformed, fails auth, or is a replay. */
+    /** @return plaintext JSON, or null if the frame is malformed or fails authentication. */
     fun open(frameB64: String): String? {
         return try {
             val frame = Base64.decode(frameB64, Base64.NO_WRAP)
-            if (frame.size < 12 + 16) return null
-            val nonce = frame.copyOfRange(0, 12)
-            val ct = frame.copyOfRange(12, frame.size)
-
-            // Replay check on the 8-byte counter portion of the nonce.
-            var ctr = 0L
-            for (i in 0 until 8) ctr = (ctr shl 8) or (nonce[4 + i].toLong() and 0xFF)
-            if (!acceptCounter(ctr)) {
-                Log.w(TAG, "rejected replayed/old frame ctr=$ctr")
-                return null
-            }
-
-            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-            cipher.init(Cipher.DECRYPT_MODE, keySpec, GCMParameterSpec(128, nonce))
-            String(cipher.doFinal(ct), Charsets.UTF_8)
+            String(aead.decrypt(frame, EMPTY_AAD), Charsets.UTF_8)
         } catch (t: Throwable) {
             Log.w(TAG, "open() failed: ${t.message}")
             null
         }
     }
 
-    @Synchronized
-    private fun acceptCounter(ctr: Long): Boolean {
-        if (ctr <= highestSeen - REPLAY_WINDOW) return false
-        if (window.contains(ctr)) return false
-        window.add(ctr)
-        if (ctr > highestSeen) highestSeen = ctr
-        while (window.isNotEmpty() && window.first() < highestSeen - REPLAY_WINDOW) {
-            window.remove(window.first())
-        }
-        return true
-    }
-
     companion object {
-        private const val REPLAY_WINDOW = 1024L
+        // XChaCha20-Poly1305 with empty associated data, matching the desktop's aad=None.
+        private val EMPTY_AAD = ByteArray(0)
 
         /** HKDF-SHA256 (extract + expand) — matches the desktop engine's KDF. */
         fun hkdfSha256(ikm: ByteArray, salt: ByteArray, info: ByteArray, length: Int): ByteArray {

@@ -232,10 +232,19 @@ class Federation:
     # ---- dispatch ----
     async def _dispatch(self, ws, channel: SecureChannel, msg, peer_id):
         if isinstance(msg, Hello):
+            is_new = msg.device_id not in self._peers
             self._peers[msg.device_id] = Peer(
                 device_id=msg.device_id, name=msg.name, ws=ws,
                 channel=channel, caps=msg.caps,
             )
+            # Reply with our own HELLO so the connecting peer learns OUR device_id.
+            # The Android client only registers a peer upon receiving a HELLO, so
+            # without this it would never have a fan-out target. Guard on is_new so
+            # two desktops don't ping-pong HELLOs forever (Android never replies).
+            if is_new:
+                my_hello = Hello(device_id=self.device_id, name=self.name,
+                                 caps={"has_llm": True, "tops": 0, "battery": None})
+                await self._send(ws, channel, my_hello.to_dict())
             return msg.device_id
 
         if isinstance(msg, Query):
