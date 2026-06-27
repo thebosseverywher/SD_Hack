@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Trail capture configuration. We listen for:
+    - TYPE_WINDOW_STATE_CHANGED   -> foreground app / screen
+    - TYPE_VIEW_TEXT_CHANGED      -> typed text (password/OTP fields are skipped in code)
+    - TYPE_WINDOW_CONTENT_CHANGED -> confirmation / booking screens
+  typeAllMask covers these; canRetrieveWindowContent is required to read node text.
+-->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeAllMask"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagRetrieveInteractiveWindows|flagReportViewIds|flagIncludeNotImportantViews"
+    android:canRetrieveWindowContent="true"
+    android:notificationTimeout="200"
+    android:description="@string/accessibility_service_description"
+    android:settingsActivity="com.flow.app.MainActivity" />

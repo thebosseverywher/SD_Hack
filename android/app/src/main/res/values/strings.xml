@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Flow</string>
+    <string name="accessibility_service_label">Flow Trail (activity timeline)</string>
+    <string name="accessibility_service_description">Flow builds a private, on-device timeline of the apps you use and text you type so you can search your own activity later. Password and OTP fields are never captured. Nothing leaves your device except encrypted search snippets you explicitly query for.</string>
+</resources>

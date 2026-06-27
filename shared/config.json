@@ -1,0 +1,24 @@
+{
+  "protocol_version": 1,
+  "app_name": "Flow",
+  "text_dim": 384,
+  "image_dim": 512,
+  "ws_port": 8787,
+  "top_k": 8,
+  "query_timeout_ms": 1500,
+  "sources": ["trove", "trail", "files", "sieve", "relay", "threads", "audio"],
+  "types": ["wifi", "parking", "receipt", "serial", "poster", "event", "doc", "activity", "note", "contact", "other"],
+  "models": {
+    "text_embed": "sentence-transformers/all-MiniLM-L6-v2",
+    "text_embed_dim": 384,
+    "image_embed": "ViT-B-32",
+    "image_embed_dim": 512,
+    "llm_phone": "Llama-3.2-3B-Instruct",
+    "llm_desktop": "Llama-3.1-8B-Instruct"
+  },
+  "crypto": {
+    "kdf": "HKDF-SHA256",
+    "aead": "XChaCha20-Poly1305",
+    "psk_bytes": 32
+  }
+}

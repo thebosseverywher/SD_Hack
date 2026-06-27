@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "flow"
+version = "0.1.0"
+description = "Flow desktop engine — on-device, federated personal-memory search (Snapdragon Multiverse Hackathon)"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Flow Team" }]
+
+# Core dependencies — everything needed to RUN ON CPU out of the box.
+dependencies = [
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
+    "websockets>=12.0",
+    "numpy>=1.26",
+    "pillow>=10.0",
+    "pypdf>=4.0",
+    "python-docx>=1.1",
+    "qrcode[pil]>=7.4",
+    "pynacl>=1.5",
+    "sentence-transformers>=2.6",
+    "onnxruntime>=1.18",
+    "sqlite-vec>=0.1.1",
+]
+
+[project.optional-dependencies]
+# Heavy / optional capabilities. The core path degrades gracefully without these.
+image = ["open-clip-torch>=2.24"]      # 512-d CLIP image embeddings + zero-shot type
+llm = ["llama-cpp-python>=0.2.70"]     # local GGUF LLM (else extractive fallback)
+win = ["pywin32>=306"]                 # Windows Trail (foreground-window timeline)
+ocr = ["easyocr>=1.7"]                 # OCR for Trove photos
+npu = ["onnxruntime-qnn>=1.18"]        # Qualcomm QNN EP (NPU) — optimization target
+dev = ["pytest>=8.0"]
+all = [
+    "open-clip-torch>=2.24",
+    "llama-cpp-python>=0.2.70",
+    "pywin32>=306",
+    "easyocr>=1.7",
+    "pytest>=8.0",
+]
+
+[project.scripts]
+flow = "flow.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["flow*"]
+
+[tool.setuptools.package-data]
+flow = ["ui/*.html", "ui/*.js", "ui/*.css"]

@@ -1,0 +1,44 @@
+# ---- Python (desktop engine) ----
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+build/
+dist/
+
+# ---- Android ----
+.gradle/
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+*.iml
+.idea/
+captures/
+.cxx/
+
+# ---- Model artifacts (large; compiled/downloaded, not versioned) ----
+models/artifacts/
+*.gguf
+*.onnx
+*.bin
+*.tflite
+
+# ---- Local data / runtime ----
+*.db
+*.sqlite
+*.sqlite3
+flow.db
+data/
+*.log
+.env
+
+# ---- OS ----
+.DS_Store
+Thumbs.db
+desktop.ini

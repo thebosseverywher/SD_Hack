@@ -1,0 +1,23 @@
+# Flow desktop — core (CPU) dependencies. Install with: pip install -r requirements.txt
+# Optional extras are listed at the bottom (commented); install the ones you want.
+
+fastapi>=0.110
+uvicorn>=0.29
+websockets>=12.0
+numpy>=1.26
+pillow>=10.0
+pypdf>=4.0
+python-docx>=1.1
+qrcode[pil]>=7.4
+pynacl>=1.5
+sentence-transformers>=2.6
+onnxruntime>=1.18
+sqlite-vec>=0.1.1
+
+# ---- Optional extras (uncomment to enable) ----
+# open-clip-torch>=2.24      # [image]  512-d CLIP image embeddings + zero-shot type
+# llama-cpp-python>=0.2.70   # [llm]    local GGUF LLM (else extractive fallback)
+# pywin32>=306               # [win]    Windows Trail timeline
+# easyocr>=1.7               # [ocr]    OCR for Trove photos
+# onnxruntime-qnn>=1.18      # [npu]    Qualcomm QNN EP (NPU) — optimization target
+# pytest>=8.0                # [dev]    tests

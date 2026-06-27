@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Compose-only app: a minimal Material3 base theme with no action bar. -->
+    <style name="Theme.Flow" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>

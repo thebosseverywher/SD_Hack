@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Flow — on-device memory</title>
+  <link rel="stylesheet" href="/ui/style.css" />
+</head>
+<body>
+  <header>
+    <h1>Flow</h1>
+    <span class="sub">on-device · federated · private</span>
+    <span id="health" class="health"></span>
+  </header>
+
+  <main>
+    <section class="ask">
+      <form id="ask-form">
+        <input id="query" type="text" autocomplete="off"
+               placeholder="Ask your memory… e.g. what's the office wifi password" />
+        <button type="submit">Ask</button>
+      </form>
+
+      <div id="answer" class="answer hidden"></div>
+
+      <ul id="results" class="results"></ul>
+    </section>
+
+    <aside class="panel">
+      <h2>Telemetry</h2>
+      <div class="ep-toggle">
+        <span>Execution provider</span>
+        <div class="toggle">
+          <button id="ep-cpu" class="ep active" data-ep="CPU">CPU</button>
+          <button id="ep-qnn" class="ep" data-ep="QNN">NPU (QNN)</button>
+        </div>
+        <div id="ep-note" class="note"></div>
+      </div>
+      <table id="stages">
+        <thead><tr><th>stage</th><th>EP</th><th>ms</th><th>tok/s</th></tr></thead>
+        <tbody></tbody>
+      </table>
+
+      <h2>Pairing</h2>
+      <img id="qr" alt="pairing QR" src="/pair.png" />
+      <div id="peers" class="peers">peers: 0</div>
+    </aside>
+  </main>
+
+  <script src="/ui/app.js"></script>
+</body>
+</html>
