@@ -1,5 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Compose-only app: a minimal Material3 base theme with no action bar. -->
-    <style name="Theme.Flow" parent="android:Theme.Material.Light.NoActionBar" />
+    <!--
+      Compose-only app: a minimal Material base theme with no action bar.
+      The real visual system lives in NeoBrutalism.kt (NeoTheme / NeoColors).
+      We only set the window/status-bar colors here so the native window chrome
+      matches the cream neo-brutalist background instead of flashing white/dark.
+      Name MUST stay Theme.Flow (referenced by the manifest/activity).
+    -->
+    <style name="Theme.Flow" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/bg_cream</item>
+        <item name="android:statusBarColor">@color/bg_cream</item>
+        <item name="android:navigationBarColor">@color/bg_cream</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
 </resources>

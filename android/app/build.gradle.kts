@@ -120,6 +120,12 @@ dependencies {
     implementation("androidx.camera:camera-view:$cameraxVersion")
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
 
+    // ---- On-device LLM (MediaPipe Tasks GenAI) ----
+    // Runs a Gemma .task model on the arm64 CPU for grounded RAG answers in Ask.kt.
+    // Ships arm64-v8a native libs only (matches abiFilters). NO model bundled in the
+    // APK — the .task is provisioned at runtime to filesDir/llm/model.task (see Inference.kt).
+    implementation("com.google.mediapipe:tasks-genai:0.10.35")
+
     // ====================================================================
     // INTEGRATION POINTS (commented; enable when the model/runtime is wired)
     // ====================================================================

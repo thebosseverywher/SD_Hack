@@ -85,8 +85,8 @@ class Ask(
 }
 
 /**
- * RAG prompt + citation contract (spec §5.5). Mirror shared/prompts/*.txt when those
- * exist so the phone and laptop ground identically.
+ * RAG prompt + citation contract (spec §5.5). Mirror the shared/prompts text files
+ * when they exist so the phone and laptop ground identically.
  */
 object Prompts {
     fun buildRagPrompt(query: String, hits: List<Hit>): String {
