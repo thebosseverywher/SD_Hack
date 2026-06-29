@@ -4,10 +4,16 @@ import android.app.Application
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import androidx.work.Configuration
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 
 /**
  * Process-wide singletons. WorkManager is configured manually here (the default
  * initializer is removed in the manifest) so the backfill Worker can reach these.
+ *
+ * Flow is mobile-only: there is NO laptop, NO pairing, NO federation. Everything —
+ * capture, retrieval, ambient consolidation, and generation — runs on-device.
  */
 class FlowApp : Application(), Configuration.Provider {
 
@@ -17,10 +23,15 @@ class FlowApp : Application(), Configuration.Provider {
         private set
     var troveIndexer: TroveIndexer? = null
         private set
-    lateinit var federation: FederationManager
+    lateinit var ambientMemory: AmbientMemory
+        private set
+    lateinit var travis: Travis
         private set
     lateinit var deviceId: String
         private set
+
+    /** Application-scoped coroutines for the always-on ambient-memory consolidation loop. */
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     override fun onCreate() {
         super.onCreate()
@@ -28,23 +39,24 @@ class FlowApp : Application(), Configuration.Provider {
         deviceId = loadOrCreateDeviceId()
         Trail.selfDeviceId = deviceId
 
-        // In-memory fallbacks keep the skeleton coherent; swap behind the interfaces.
-        index = InMemoryIndex()
+        // Disk-backed so Travis's ambient memory survives restarts/reboots (loads on init).
+        index = PersistentIndex(this)
         inference = Inference(this).also { it.warmUp() }
         troveIndexer = TroveIndexer(this, inference, index, deviceId)
+        ambientMemory = AmbientMemory(inference, index, deviceId)
+        // Disk-backed conversational memory makes Travis fully stateful: the chat thread
+        // (turns + rolling summary) persists across app restarts and reboots.
+        travis = Travis(inference, index, ambientMemory, ConversationStore(this))
 
-        federation = FederationManager(
-            selfDeviceId = deviceId,
-            selfName = android.os.Build.MODEL ?: "phone",
-            index = index,
-            caps = Caps(tops = 45.0, has_llm = true, battery = -1)
-        )
+        // Every captured activity Item is BOTH ingested into the local index (with its text
+        // embedding) AND forwarded to the ambient memory layer for recency + consolidation.
+        Trail.bindSink { item ->
+            index.ingest(item, textVec = inference.embedText(item.text))
+            ambientMemory.onActivity(item)
+        }
 
-        // Let Federation embed inbound peer QUERY text without depending on Inference.
-        StubEmbedHook.embed = { text -> inference.embedText(text) }
-
-        // Trail emits Items straight into the local index.
-        Trail.bindSink { item -> index.ingest(item, textVec = inference.embedText(item.text)) }
+        // Kick off the always-on consolidation loop (distills raw events into memory notes).
+        ambientMemory.start(appScope)
     }
 
     override val workManagerConfiguration: Configuration

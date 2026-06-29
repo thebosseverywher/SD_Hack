@@ -90,6 +90,15 @@ class InMemoryIndex : Index {
 
     override fun count(): Int = store.size
 
+    /** Snapshot of stored ids — used by [PersistentIndex] to compact its on-disk log. */
+    fun ids(): List<String> = store.keys.toList()
+
+    /** The (text, image) vectors stored for [id], for durable rewrite. Either may be null. */
+    fun vectorsOf(id: String): Pair<FloatArray?, FloatArray?> {
+        val e = store[id] ?: return null to null
+        return e.textVec to e.imageVec
+    }
+
     private inline fun knn(
         query: FloatArray,
         k: Int,
@@ -149,6 +158,8 @@ fun Item.toHit(score: Double, snippetLen: Int = 240): Hit = Hit(
     source = source,
     type = type,
     text = if (text.length > snippetLen) text.take(snippetLen) + "…" else text,
+    app_context = app_context,
+    ts = ts,
     fields = fields,
     thumb_b64 = thumb_b64
 )

@@ -73,6 +73,37 @@ class Inference(
     val llmModelLoaded: Boolean get() = llmTried && llm != null
     @Volatile private var warmStarted = false
 
+    // ----------------------------------------------------------------------
+    // On-device text embedder (ONNX Runtime + NNAPI/NPU, CPU fallback). Lazily
+    // built at most once. null => unavailable -> embedText() uses the deterministic
+    // pseudo-embedding fallback.
+    // ----------------------------------------------------------------------
+    private val embedLock = Any()
+    @Volatile private var embedTried = false
+    @Volatile private var embedder: OrtTextEmbedder? = null
+
+    /**
+     * Telemetry label for the text-embedding EP: the embedder's own label
+     * ("NPU (NNAPI)" / "CPU") when real embeddings are active, else the fallback marker.
+     */
+    val embedEpLabel: String get() = embedder?.epLabel ?: "CPU (fallback)"
+
+    /** Build the ORT embedder once; returns null (and stays null) if construction fails. */
+    private fun embedderOrNull(): OrtTextEmbedder? {
+        if (embedTried) return embedder
+        synchronized(embedLock) {
+            if (embedTried) return embedder
+            embedder = try {
+                OrtTextEmbedder(context)
+            } catch (t: Throwable) {
+                android.util.Log.w("Inference", "ORT embedder init failed, using stub embeddings", t)
+                null
+            }
+            embedTried = true
+            return embedder
+        }
+    }
+
     /** Build the LLM engine once; returns null (and stays null) if model missing / init fails. */
     private fun llmOrNull(): LlmEngine? {
         if (llmTried) return llm
@@ -95,18 +126,33 @@ class Inference(
             warmStarted = true
         }
         Thread({
+            // Build the ORT text embedder first (fast ~1-2s) so retrieval is real ASAP and
+            // the EP label is accurate early, then load the heavy LLM (.task, ~1GB).
+            try { embedderOrNull() } catch (_: Throwable) { /* embedderOrNull already guards */ }
             try { llmOrNull() } catch (_: Throwable) { /* createOrNull already guards */ }
             finally { llmReady = true }
-        }, "flow-llm-warmup").start()
+        }, "flow-warmup").start()
     }
 
     // ----------------------------------------------------------------------
     // 1.1 Text embedding service -> 384-d, L2-normalized.
     // ----------------------------------------------------------------------
     fun embedText(texts: List<String>): Array<FloatArray> {
+        // Real ONNX Runtime (NNAPI/NPU, CPU fallback) embeddings when the embedder is
+        // available; otherwise the deterministic pseudo-embedding keeps the app coherent.
+        val emb = embedderOrNull()
         val out: Array<FloatArray>
         val ns = measureNanoTime {
-            out = Array(texts.size) { i -> deterministicVector(texts[i], Config.TEXT_DIM) }
+            out = if (emb != null) {
+                try {
+                    emb.embed(texts)
+                } catch (t: Throwable) {
+                    android.util.Log.w("Inference", "ORT embed failed, stub fallback", t)
+                    Array(texts.size) { i -> deterministicVector(texts[i], Config.TEXT_DIM) }
+                }
+            } else {
+                Array(texts.size) { i -> deterministicVector(texts[i], Config.TEXT_DIM) }
+            }
         }
         record("embed_text", ns)
         return out

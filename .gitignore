@@ -42,3 +42,6 @@ data/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Claude Code local tooling/settings
+.claude/

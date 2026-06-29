@@ -83,6 +83,8 @@ data class Hit(
     val source: String,
     val type: String,
     val text: String,                   // snippet
+    val app_context: String? = null,    // originating app/package — for friendly display
+    val ts: Long = 0L,                  // original capture time — for relative-time display
     val fields: JsonObject = JsonObject(emptyMap()),
     val thumb_b64: String? = null
 )

@@ -48,6 +48,13 @@ class FlowAccessibilityService : AccessibilityService() {
         event ?: return
         if (!Trail.enabled) return   // honor the per-sensor toggle / consent state
 
+        // Drop structural UI noise: Flow's own surface (self-capture feedback loop), the
+        // keyboard / IME, the system UI shade, the launcher, and the search box. These
+        // flooded the memory with junk ("Your story", "Meet Travis", keyboard suggestions)
+        // and crowded out the content worth remembering (chats, bookings, what you read).
+        val pkg = event.packageName?.toString() ?: return
+        if (isNoisyPackage(pkg)) return
+
         when (event.eventType) {
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> onForegroundChanged(event)
             AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED -> onTextChanged(event)
@@ -99,7 +106,8 @@ class FlowAccessibilityService : AccessibilityService() {
             // node objects under heavy TYPE_WINDOW_CONTENT_CHANGED traffic.
             @Suppress("DEPRECATION") root.recycle()
         }
-        if (snippet.isBlank()) return
+        // Require a substantive snippet — single short fragments ("A ·", "19 ·") are noise.
+        if (snippet.length < MIN_CONTENT_LEN) return
         lastEmitMs = now
         emit(type = "activity", appContext = pkg, text = snippet)
     }
@@ -133,7 +141,18 @@ class FlowAccessibilityService : AccessibilityService() {
         return sb.toString().take(budget)
     }
 
+    /** Recently emitted texts, to suppress duplicate captures (e.g. "Your story" spam). */
+    private val recentTexts = object : LinkedHashMap<String, Boolean>(64, 0.75f, true) {
+        override fun removeEldestEntry(eldest: Map.Entry<String, Boolean>?): Boolean = size > 48
+    }
+
     private fun emit(type: String, appContext: String?, text: String) {
+        // Suppress exact-duplicate captures seen recently (interleaved repeats slip past the
+        // simple time throttle, so we dedup against a small recent-window).
+        val key = text.trim().lowercase()
+        synchronized(recentTexts) {
+            if (recentTexts.put(key, true) != null) return
+        }
         val item = Item(
             id = UUID.randomUUID().toString(),
             device_id = Trail.selfDeviceId,
@@ -152,9 +171,36 @@ class FlowAccessibilityService : AccessibilityService() {
         s?.invoke(item)
     }
 
+    /**
+     * Structural-UI packages whose text is noise, never user "activity": the keyboard/IME,
+     * the system UI / notification shade, launchers, and the search box. Matched by exact id
+     * or substring so OEM variants (oplus/oppo launcher, gboard, etc.) are covered too.
+     */
+    private fun isNoisyPackage(pkg: String): Boolean {
+        if (pkg == packageName) return true                       // Flow's own surface
+        if (pkg in NOISY_PKGS) return true
+        return "inputmethod" in pkg ||                            // any keyboard / IME
+            "launcher" in pkg ||                                 // any launcher
+            "quicksearchbox" in pkg ||                           // search boxes
+            "systemui" in pkg
+    }
+
     companion object {
         private const val TAG = "Flow/Trail"
-        private const val CONTENT_THROTTLE_MS = 1500L
+        // Travis monitors all activity: sample content changes a bit more aggressively so
+        // ambient memory is richer, while still throttling enough to avoid flooding the index.
+        private const val CONTENT_THROTTLE_MS = 800L
+        // Harvested screen text must be at least this long to be worth remembering — drops
+        // single short fragments ("A ·", "19 ·") that carry no real context.
+        private const val MIN_CONTENT_LEN = 24
+
+        /** Exact-id structural-UI packages to never record (substring rules cover the rest). */
+        private val NOISY_PKGS = setOf(
+            "android",
+            "com.android.systemui",
+            "com.android.intentresolver",
+            "com.google.android.googlequicksearchbox"
+        )
 
         /** True if this node is a password/secure field that must never be captured. */
         fun isSensitive(node: AccessibilityNodeInfo): Boolean {

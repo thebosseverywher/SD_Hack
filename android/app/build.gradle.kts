@@ -2,6 +2,7 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.serialization")
+    id("org.jetbrains.kotlin.plugin.compose")
 }
 
 android {
@@ -51,19 +52,13 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-
     buildFeatures {
         compose = true
         buildConfig = true
     }
 
-    composeOptions {
-        // Compatible with Kotlin 1.9.24.
-        kotlinCompilerExtensionVersion = "1.5.14"
-    }
+    // Compose compiler is now configured by the org.jetbrains.kotlin.plugin.compose
+    // Gradle plugin (Kotlin 2.x); no kotlinCompilerExtensionVersion needed.
 
     packaging {
         resources {
@@ -73,6 +68,13 @@ android {
         jniLibs {
             useLegacyPackaging = false
         }
+    }
+}
+
+// Kotlin 2.x compiler options (replaces the removed android.kotlinOptions DSL).
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
 }
 
@@ -120,11 +122,20 @@ dependencies {
     implementation("androidx.camera:camera-view:$cameraxVersion")
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
 
-    // ---- On-device LLM (MediaPipe Tasks GenAI) ----
-    // Runs a Gemma .task model on the arm64 CPU for grounded RAG answers in Ask.kt.
-    // Ships arm64-v8a native libs only (matches abiFilters). NO model bundled in the
-    // APK — the .task is provisioned at runtime to filesDir/llm/model.task (see Inference.kt).
-    implementation("com.google.mediapipe:tasks-genai:0.10.35")
+    // ---- On-device LLM (LiteRT-LM) ----
+    // Runs a Gemma .litertlm model on the Adreno GPU (OpenCL), CPU fallback, for grounded
+    // RAG answers in Travis.kt via the low-level Engine/Session API (see LlmEngine.kt).
+    // Replaces the maintenance-mode MediaPipe tasks-genai runtime. Ships arm64-v8a native
+    // libs only (matches abiFilters), incl. libLiteRtClGlAccelerator.so for the GPU backend.
+    // NO model bundled in the APK — the .litertlm is provisioned at runtime to
+    // filesDir/llm/ or pushed to /data/local/tmp/flow/llm/ (see LlmEngine.kt).
+    implementation("com.google.ai.edge.litertlm:litertlm-android:0.13.1")
+
+    // ---- On-device text embeddings (ONNX Runtime) ----
+    // all-MiniLM-L6-v2 (384-d) runs via ORT. We try the NNAPI EP first, which on the
+    // Snapdragon 8 Gen 3 routes supported ops to the Hexagon NPU/DSP, and fall back to
+    // CPU. Ships arm64-v8a native libs (matches abiFilters). See OrtTextEmbedder.kt.
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.18.0")
 
     // ====================================================================
     // INTEGRATION POINTS (commented; enable when the model/runtime is wired)

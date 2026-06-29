@@ -62,14 +62,14 @@ import androidx.compose.ui.unit.sp
 
 /** Central token holder. NOT a composable. Single source of truth. */
 object NeoTheme {
-    val bgCream: Color = Color(0xFFF3E9CE)
-    val surfaceWhite: Color = Color(0xFFFFFFFF)
-    val surfaceMint: Color = Color(0xFFBFF2D4)
-    val primaryGreen: Color = Color(0xFF2FCB6E)
-    val accentGreenDeep: Color = Color(0xFF0B7A3B)
-    val ink: Color = Color(0xFF141414)
-    val inkMuted: Color = Color(0xFF4A4A4A)
-    val dangerRed: Color = Color(0xFFE5484D)
+    val bgCream: Color = Color(0xFF000000)
+    val surfaceWhite: Color = Color(0xFF0C1018)
+    val surfaceMint: Color = Color(0xFF10203F)
+    val primaryGreen: Color = Color(0xFF1F5CFF)
+    val accentGreenDeep: Color = Color(0xFF5B8CFF)
+    val ink: Color = Color(0xFFFFFFFF)
+    val inkMuted: Color = Color(0xFF9DB2D9)
+    val dangerRed: Color = Color(0xFFFF5A6A)
 
     val borderWidth: Dp = 3.dp
     val shadowOffset: Dp = 6.dp
@@ -87,9 +87,9 @@ object NeoColors {
     val ink: Color = NeoTheme.ink
     val inkMuted: Color = NeoTheme.inkMuted
     val dangerRed: Color = NeoTheme.dangerRed
-    val onPrimary: Color = NeoTheme.ink
-    val border: Color = NeoTheme.ink
-    val shadow: Color = NeoTheme.ink
+    val onPrimary: Color = Color(0xFFFFFFFF)
+    val border: Color = Color(0xFF5B8CFF)
+    val shadow: Color = Color(0xFF1F5CFF)
 }
 
 /** Typography presets — never below Medium weight; all ink by default. */
@@ -507,13 +507,13 @@ private fun NeoToggle(checked: Boolean) {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Cheap desaturation toward cream for disabled fills (no blur, keeps the flat look). */
+/** Cheap desaturation toward dark grey for disabled fills (no blur, keeps the flat look). */
 private fun desaturate(c: Color): Color {
     val gray = 0.78f
     return Color(
-        red = c.red * (1f - gray) + 0.86f * gray,
-        green = c.green * (1f - gray) + 0.86f * gray,
-        blue = c.blue * (1f - gray) + 0.82f * gray,
+        red = c.red * (1f - gray) + 0.165f * gray,
+        green = c.green * (1f - gray) + 0.184f * gray,
+        blue = c.blue * (1f - gray) + 0.227f * gray,
         alpha = c.alpha
     )
 }

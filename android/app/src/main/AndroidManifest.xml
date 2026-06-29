@@ -16,6 +16,9 @@
     <!-- Notifications: capture indicator + Surface (proactive recall). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Restart always-on capture after reboot so Travis keeps remembering. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
     <!-- Camera: QR pairing scan (and optional live Trove capture). -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera.any" android:required="false" />
@@ -30,6 +33,10 @@
         android:theme="@style/Theme.Flow"
         android:usesCleartextTraffic="true"
         tools:targetApi="31">
+
+        <!-- LiteRT-LM GPU backend (Adreno OpenCL). Optional: absence falls back to CPU. -->
+        <uses-native-library android:name="libOpenCL.so" android:required="false" />
+        <uses-native-library android:name="libvndksupport.so" android:required="false" />
 
         <activity
             android:name=".MainActivity"
@@ -57,11 +64,23 @@
                 android:resource="@xml/accessibility_service_config" />
         </service>
 
-        <!-- Foreground service that owns Trove indexing + the federation peer. -->
+        <!-- Foreground service that owns Trove indexing + ambient memory capture. -->
         <service
             android:name=".IndexingService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
+
+        <!-- Restart the always-on capture service on boot (mobile-only, no network needed). -->
+        <receiver
+            android:name=".BootReceiver"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="android.permission.RECEIVE_BOOT_COMPLETED">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
 
         <!-- WorkManager is initialized manually in FlowApp (see provider removal below). -->
         <provider

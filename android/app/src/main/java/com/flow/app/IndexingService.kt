@@ -14,7 +14,7 @@ import androidx.core.app.NotificationCompat
 /**
  * Foreground service (spec §7.1) that owns the always-on parts of Flow:
  *   - Trove live MediaStore observing + enqueues the WorkManager backfill
- *   - the federation peer (so QUERY/RESULTS work while the app is backgrounded)
+ *   - keeps Travis's ambient memory capturing while the app is backgrounded
  *
  * It shows the persistent "capturing" indicator required by the consent model.
  * foregroundServiceType=dataSync is declared in the manifest.
@@ -42,7 +42,6 @@ class IndexingService : Service() {
 
     override fun onDestroy() {
         app.troveIndexer?.stopObserving()
-        app.federation.shutdown()
         super.onDestroy()
     }
 
@@ -50,8 +49,8 @@ class IndexingService : Service() {
 
     private fun startForegroundCompat() {
         val notif: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Flow is capturing on-device")
-            .setContentText("Indexing photos & activity locally. Passwords excluded.")
+            .setContentTitle("Flow — Travis is remembering")
+            .setContentText("Capturing your activity privately on-device. Passwords excluded.")
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setOngoing(true)
             .build()
